@@ -1,10 +1,9 @@
 package game.objects;
 
-import game.config.FoxAudioProcessor;
+import game.core.FoxAudioProcessor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
@@ -20,7 +19,6 @@ import java.util.Random;
 @Setter
 @Getter
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
 @RequiredArgsConstructor
 public class AbstractMob implements iGameObject, iCreature {
@@ -61,7 +59,7 @@ public class AbstractMob implements iGameObject, iCreature {
     private Point2D centerPoint;
 
     @Getter
-    private Rectangle2D rectangle;
+    private Rectangle2D bounds;
 
     @Getter
     private BufferedImage[] spriteList;
@@ -108,8 +106,8 @@ public class AbstractMob implements iGameObject, iCreature {
             }
 
             angle = calculateAngle(x, y);
-            xMod = (int) (rectangle.getWidth() / 2);
-            yMod = (int) (rectangle.getHeight() / 2);
+            xMod = (int) (bounds.getWidth() / 2);
+            yMod = (int) (bounds.getHeight() / 2);
 
             g2D.translate(getCenterPoint().getX(), getCenterPoint().getY());
             g2D.rotate(Math.toRadians(angle));
@@ -117,8 +115,8 @@ public class AbstractMob implements iGameObject, iCreature {
 
             g2D.drawImage(spriteList[slide],
                     0, 0,
-                    (int) rectangle.getWidth(),
-                    (int) rectangle.getHeight(),
+                    (int) bounds.getWidth(),
+                    (int) bounds.getHeight(),
                     null);
 
             g2D.translate(xMod, yMod);
@@ -191,11 +189,16 @@ public class AbstractMob implements iGameObject, iCreature {
         recheckImageSettings();
     }
 
+    @Override
+    public Point2D getCenterPoint() {
+        return centerPoint;
+    }
+
     public void setCenterPoint(Point2D p) {
         centerPoint = p;
 
         // set pixel-rectangle by percents of centerpoint:
-        rectangle = new Rectangle2D.Double(
+        bounds = new Rectangle2D.Double(
                 centerPoint.getX() - spriteList[0].getWidth() * scale / 2f,
                 centerPoint.getY() - spriteList[0].getHeight() * scale / 2f,
                 spriteList[0].getWidth() * scale,

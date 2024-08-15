@@ -5,15 +5,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
 
-
-@SuppressWarnings("serial")
 public class CreateLevelOptions extends JDialog {
-
 
     public CreateLevelOptions(ItemsFrame parent) {
         super(parent, "Options:", true);
@@ -31,14 +26,9 @@ public class CreateLevelOptions extends JDialog {
 
                                 JSpinner lifeSpin = new JSpinner() {
                                     {
-                                        setValue(parent.getLifeCount());
+                                        setValue(parent.getLives());
 
-                                        addChangeListener(new ChangeListener() {
-                                            @Override
-                                            public void stateChanged(ChangeEvent e) {
-                                                parent.setLifeCount(Integer.parseInt(getValue().toString()));
-                                            }
-                                        });
+                                        addChangeListener(_ -> parent.setLives(Integer.parseInt(getValue().toString())));
                                     }
                                 };
 
@@ -53,14 +43,9 @@ public class CreateLevelOptions extends JDialog {
 
                                 JSpinner deathSpin = new JSpinner() {
                                     {
-                                        setValue(parent.getDeathCount());
+                                        setValue(parent.getDeaths());
 
-                                        addChangeListener(new ChangeListener() {
-                                            @Override
-                                            public void stateChanged(ChangeEvent e) {
-                                                parent.setDeathCount(Integer.parseInt(getValue().toString()));
-                                            }
-                                        });
+                                        addChangeListener(_ -> parent.setDeaths(Integer.parseInt(getValue().toString())));
                                     }
                                 };
 
@@ -75,14 +60,9 @@ public class CreateLevelOptions extends JDialog {
 
                                 JSpinner zombiesSpin = new JSpinner() {
                                     {
-                                        setValue(parent.getZombieCount());
+                                        setValue(parent.getZombiesCount());
 
-                                        addChangeListener(new ChangeListener() {
-                                            @Override
-                                            public void stateChanged(ChangeEvent e) {
-                                                parent.setZombieCount(Integer.parseInt(getValue().toString()));
-                                            }
-                                        });
+                                        addChangeListener(_ -> parent.setZombiesCount(Integer.parseInt(getValue().toString())));
                                     }
                                 };
 
@@ -99,12 +79,7 @@ public class CreateLevelOptions extends JDialog {
                                     {
                                         setValue(parent.getSkeletonsCount());
 
-                                        addChangeListener(new ChangeListener() {
-                                            @Override
-                                            public void stateChanged(ChangeEvent e) {
-                                                parent.setSkeletonsCount(Integer.parseInt(getValue().toString()));
-                                            }
-                                        });
+                                        addChangeListener(_ -> parent.setSkeletonsCount(Integer.parseInt(getValue().toString())));
                                     }
                                 };
 
@@ -120,14 +95,9 @@ public class CreateLevelOptions extends JDialog {
 
                                 JSpinner redTowersSpin = new JSpinner() {
                                     {
-                                        setValue(parent.getRedTowersCount());
+                                        setValue(parent.getRedTowerCount());
 
-                                        addChangeListener(new ChangeListener() {
-                                            @Override
-                                            public void stateChanged(ChangeEvent e) {
-                                                parent.setRedTowersCount(Integer.parseInt(getValue().toString()));
-                                            }
-                                        });
+                                        addChangeListener(_ -> parent.setRedTowerCount(Integer.parseInt(getValue().toString())));
                                     }
                                 };
 
@@ -142,9 +112,9 @@ public class CreateLevelOptions extends JDialog {
 
                                 JSpinner whiteTowersSpin = new JSpinner() {
                                     {
-                                        setValue(parent.getWhiteTowersCount());
+                                        setValue(parent.getWhiteTowerCount());
 
-                                        addChangeListener(e -> parent.setWhiteTowersCount(Integer.parseInt(getValue().toString())));
+                                        addChangeListener(_ -> parent.setWhiteTowerCount(Integer.parseInt(getValue().toString())));
                                     }
                                 };
 
@@ -159,14 +129,9 @@ public class CreateLevelOptions extends JDialog {
 
                                 JSpinner greenTowersSpin = new JSpinner() {
                                     {
-                                        setValue(parent.getGreenTowersCount());
+                                        setValue(parent.getGreenTowerCount());
 
-                                        addChangeListener(new ChangeListener() {
-                                            @Override
-                                            public void stateChanged(ChangeEvent e) {
-                                                parent.setGreenTowersCount(Integer.parseInt(getValue().toString()));
-                                            }
-                                        });
+                                        addChangeListener(_ -> parent.setGreenTowerCount(Integer.parseInt(getValue().toString())));
                                     }
                                 };
 
@@ -181,14 +146,9 @@ public class CreateLevelOptions extends JDialog {
 
                                 JSpinner mageTowersSpin = new JSpinner() {
                                     {
-                                        setValue(parent.getMageTowersCount());
+                                        setValue(parent.getMageTowerCount());
 
-                                        addChangeListener(new ChangeListener() {
-                                            @Override
-                                            public void stateChanged(ChangeEvent e) {
-                                                parent.setMageTowersCount(Integer.parseInt(getValue().toString()));
-                                            }
-                                        });
+                                        addChangeListener(_ -> parent.setMageTowerCount(Integer.parseInt(getValue().toString())));
                                     }
                                 };
 

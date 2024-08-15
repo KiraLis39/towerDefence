@@ -1,4 +1,4 @@
-package game.decorations;
+package game.objects.decorations;
 
 import game.objects.AbstractDecor;
 
@@ -7,18 +7,17 @@ import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 
 
-public class Mushrum extends AbstractDecor {
+public class Mushroom extends AbstractDecor {
 
-    public Mushrum(int id, BufferedImage[] spriteList, Point2D p, float mult, int animSpeed) {
+    public Mushroom(int id, BufferedImage[] spriteList, Point2D p, float mult, int animSpeed) {
         setName("MushrumBrown");
 
-        setID(id);
-        setSpritelist(spriteList);
+        setId(id);
+        setSpriteList(spriteList);
         setScale(mult);
         if (p != null) {
             setCenterPoint(p);
         }
-//		setSrcDimension(parentDim);
 
         setComment("Mushrum. Not eat!");
         setIcon(new ImageIcon(spriteList[0]));
@@ -27,7 +26,5 @@ public class Mushrum extends AbstractDecor {
         if (animSpeed != -1) {
             setAniSpeed(animSpeed);
         }
-
-        createHash(17);
     }
 }

@@ -1,18 +1,18 @@
 package game.gui;
 
-import fox.FoxFontBuilder;
-import fox.IOM;
 import game.config.Registry;
+import game.core.FoxAudioProcessor;
+import game.core.SavesEngine;
 import game.subgui.OptionsDialog;
-import resources.FoxAudioProcessor;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.AbstractAction;
 import javax.swing.JFrame;
 import java.awt.AlphaComposite;
 import java.awt.Canvas;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
@@ -21,42 +21,27 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 
 
-@SuppressWarnings("serial")
+@Slf4j
 public class StartMenu extends JFrame implements MouseListener, MouseMotionListener {
-    public static Boolean isDebugOn, cmodeUnlocked;
-
-    public static Boolean useSmoothing = false, useBicubic = false;
-
     private final Canvas canva;
     private final Rectangle2D[] menuButRects = new Rectangle2D.Float[4];
-    private final int WIDTH = 1024;
-    private final int HEIGHT = 768;
-    private final float widthPercent;
-    private final float heightPercent;
+    private float widthPercent, heightPercent;
+    private boolean cmodeUnlocked, isContinueOver = false, isContinuePress = false, isNewGameOver = false, isNewGamePress = false,
+            isOptionsOver = false, isOptionsPress = false, isExitOver = false, isExitPress = false, doBreak = false;
     private BufferStrategy bs;
     private Point mousePressPoint;
     private BufferedImage[] buts;
-    private Boolean isContinueOver = false, isContinuePress = false, isNewGameOver = false, isNewGamePress = false, isOptionsOver = false, isOptionsPress = false, isExitOver = false, isExitPress = false;
-    private Font titleFont, buttonsFont;
+    private BufferedImage menuPicture01, guiBackground;
 
 
     public StartMenu() {
         init();
-
-        setUndecorated(true);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setCursor(Registry.cur_0);
-
-        setState(NORMAL);
-        setPreferredSize(new Dimension(WIDTH, HEIGHT));
-        widthPercent = WIDTH / 100f;
-        heightPercent = HEIGHT / 100f;
 
         canva = new Canvas(getGraphicsConfiguration());
         canva.addMouseListener(this);
@@ -64,60 +49,68 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
 
         add(canva);
 
+        inAcInit();
+        postInit();
+
+        Thread.startVirtualThread(() -> {
+            while (!doBreak) {
+                try {
+                    bs = canva.getBufferStrategy();
+                    update();
+                    Thread.sleep(1000 / 60);
+                } catch (Exception e) {
+                    log.error("Ошибка при обновлении холста игры: {}", e.getMessage());
+                }
+            }
+        });
+    }
+
+    private void postInit() {
         pack();
         setLocationRelativeTo(null);
         setVisible(true);
 
         canva.createBufferStrategy(2);
 
-        inAcInit();
-        postInit();
-
-        Thread menuUpdateThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    bs = canva.getBufferStrategy();
-                    update();
-                    try {
-                        Thread.sleep(64);
-                    } catch (Exception e) {
-                        log.error("Error: {}", e.getMessage());
-                    }
-                }
-            }
-        });
-        menuUpdateThread.start();
-    }
-
-    private void postInit() {
-        menuButRects[0] = new Rectangle2D.Float(getWidth() / 2 - widthPercent * 15f, heightPercent * 20f, widthPercent * 30f, heightPercent * 10f);
-        menuButRects[1] = new Rectangle2D.Float(getWidth() / 2 - widthPercent * 15f, heightPercent * 32f, widthPercent * 30f, heightPercent * 10f);
-        menuButRects[2] = new Rectangle2D.Float(getWidth() / 2 - widthPercent * 15f, heightPercent * 44f, widthPercent * 30f, heightPercent * 10f);
-        menuButRects[3] = new Rectangle2D.Float(getWidth() / 2 - widthPercent * 15f, heightPercent * 56f, widthPercent * 30f, heightPercent * 10f);
+        menuButRects[0] = new Rectangle2D.Float(getWidth() / 2f - widthPercent * 15f,
+                heightPercent * 20f, widthPercent * 30f, heightPercent * 10f);
+        menuButRects[1] = new Rectangle2D.Float(getWidth() / 2f - widthPercent * 15f,
+                heightPercent * 32f, widthPercent * 30f, heightPercent * 10f);
+        menuButRects[2] = new Rectangle2D.Float(getWidth() / 2f - widthPercent * 15f,
+                heightPercent * 44f, widthPercent * 30f, heightPercent * 10f);
+        menuButRects[3] = new Rectangle2D.Float(getWidth() / 2f - widthPercent * 15f,
+                heightPercent * 56f, widthPercent * 30f, heightPercent * 10f);
     }
 
     private void init() {
         FoxAudioProcessor.stopMusic();
 
-        titleFont = FoxFontBuilder.setFoxFont(FoxFontBuilder.FONT.CAMBRIA, 16, true);
-        buttonsFont = FoxFontBuilder.setFoxFont(FoxFontBuilder.FONT.SEGOE_SCRIPT, 32, true);
+        cmodeUnlocked = Registry.userConf.isCreativeMode();
+        buts = Registry.sComb.getSprites("defButs", Registry.cache.getBufferedImage("defaultButtons"), 3, 1);
+        assert buts != null;
 
-        buts = Registry.comb.addSpritelist("defButs", ResourceManager.getBufferedImage("defaultButtons"), 1, 3);
+        menuPicture01 = Registry.cache.getBufferedImage("menuPicture_1");
+        guiBackground = Registry.cache.getBufferedImage("gui_background");
 
-        cmodeUnlocked = IOM.getBoolean(IOM.HEADERS.CONFIG, IOMs.CONFIG.CREATOR_MODE);
-        useSmoothing = IOM.getBoolean(IOM.HEADERS.CONFIG, IOMs.CONFIG.SMOOTH);
-//		isFullscreen 		= IOM.getBoolean(IOM.HEADERS.CONFIG, IOMs.CONFIG.FULLSCREEN);
-        useBicubic = IOM.getBoolean(IOM.HEADERS.CONFIG, IOMs.CONFIG.BICUBIC);
-        isDebugOn = IOM.getBoolean(IOM.HEADERS.CONFIG, IOMs.CONFIG.DEBUG);
+        setCursor(Registry.cur_0);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+        setState(NORMAL);
+        setUndecorated(false);
+        setPreferredSize(new Dimension(
+                Integer.parseInt((String) Registry.props.get("width")),
+                Integer.parseInt((String) Registry.props.get("height"))));
+
+        widthPercent = Integer.parseInt((String) Registry.props.get("width")) / 100f;
+        heightPercent = Integer.parseInt((String) Registry.props.get("height")) / 100f;
     }
 
     private void inAcInit() {
-        Registry.inAc.add("menu", this);
+        Registry.inAc.add("menu", getRootPane());
         Registry.inAc.set("menu", "exit", KeyEvent.VK_ESCAPE, 0, new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                IOM.saveAll();
+                SavesEngine.saveAll();
                 System.exit(0);
             }
         });
@@ -126,7 +119,11 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
             public void actionPerformed(ActionEvent e) {
                 if (cmodeUnlocked) {
                     dispose();
-                    new GameFrame(139);
+                    try {
+                        new GameFrame(139, false);
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    }
                 }
             }
         });
@@ -147,34 +144,32 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
     }
 
     protected void update() {
-        Graphics2D g2D;
-
-        try {
+        do {
             do {
-                do {
-                    g2D = (Graphics2D) bs.getDrawGraphics();
+                try {
+                    Graphics2D g2D = (Graphics2D) bs.getDrawGraphics();
                     rendering(g2D);
                     updateCanvas(g2D);
-                    g2D.dispose();
-                } while (bs.contentsLost());
-            } while (bs.contentsRestored());
-            bs.show();
-        } catch (Exception e) {
-            log.error("Error: {}", e.getMessage());
-        }
+                } catch (Exception e) {
+                    log.error("Error: {}", e.getMessage());
+                }
+            } while (bs.contentsLost());
+        } while (bs.contentsRestored());
+        bs.show();
     }
 
     private void updateCanvas(Graphics2D g2D) {
-        g2D.drawImage(ResourceManager.getBufferedImage("gui_background"), 0, 0, getWidth(), getHeight(), this);
-        g2D = FoxText.draw("Tower Defense v." + Registry.verse, g2D, titleFont, new Point2D.Float(widthPercent * 2f - 3f, heightPercent * 3.5f + 3f), Color.ORANGE);
+        g2D.drawImage(guiBackground, 0, 0, getWidth(), getHeight(), this);
+
+        g2D.setFont(Registry.titleFont);
+        g2D.setColor(Color.ORANGE);
+        g2D.drawString("Tower Defense v." + Registry.props.get("version"), widthPercent * 2f - 3f, heightPercent * 3.5f + 3f);
 
         if (cmodeUnlocked) {
-            g2D = FoxText.draw("SHIFT + C", g2D, titleFont, new Point2D.Float(getWidth() - 100f, heightPercent * 3.5f + 3f), Color.ORANGE);
+            g2D.drawString("SHIFT + C", getWidth() - 100f, heightPercent * 3.5f + 3f);
         }
 
-        g2D.drawImage(ResourceManager.getBufferedImage("menuPicture_1"), (int) (widthPercent * 1.8f), (int) (heightPercent * 6f), (int) (widthPercent * 96.4f), (int) (heightPercent * 92f), this);
-
-        g2D.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.85f));
+        g2D.drawImage(menuPicture01, (int) (widthPercent * 1.8f), (int) (heightPercent * 6f), (int) (widthPercent * 96.4f), (int) (heightPercent * 92f), this);
 
         int var0 = 0;
         if (isContinueOver) {
@@ -184,6 +179,8 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
                 var0 = 1;
             }
         }
+        Composite comp = g2D.getComposite();
+        g2D.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.85f));
         g2D.drawImage(buts[var0],
                 menuButRects[0].getBounds().x, menuButRects[0].getBounds().y,
                 menuButRects[0].getBounds().width, menuButRects[0].getBounds().height, this);
@@ -224,11 +221,11 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
                 menuButRects[3].getBounds().x, menuButRects[3].getBounds().y,
                 menuButRects[3].getBounds().width, menuButRects[3].getBounds().height, this);
 
-        g2D.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC, 1));
+        g2D.setComposite(comp);
 
         // buttons text:
         int centerFrameWidth = getWidth() / 2, shiftMod;
-        g2D.setFont(buttonsFont);
+        g2D.setFont(Registry.buttonsFont);
 
 
         g2D.setColor(Color.DARK_GRAY);
@@ -239,7 +236,7 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
         }
         g2D.drawString("Продолжить",
                 (int) (centerFrameWidth - Registry.ffb.getStringBounds(g2D, "Продолжить").getWidth() / 2 - shiftMod - 3),
-                (menuButRects[0].getY() + (menuButRects[0].getHeight() / 2) + Registry.ffb.getStringBounds(g2D, "Продолжить").getMaxY() / 2) + shiftMod + 3);
+                (int) ((menuButRects[0].getY() + (menuButRects[0].getHeight() / 2) + Registry.ffb.getStringBounds(g2D, "Продолжить").getMaxY() / 2) + shiftMod + 3));
 
         if (isNewGameOver) {
             shiftMod = 2;
@@ -248,7 +245,7 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
         }
         g2D.drawString("Новая игра",
                 (int) (centerFrameWidth - Registry.ffb.getStringBounds(g2D, "Новая игра").getWidth() / 2 - shiftMod - 3),
-                (menuButRects[1].getY() + (menuButRects[1].getHeight() / 2) + Registry.ffb.getStringBounds(g2D, "Новая игра").getMaxY() / 2) + shiftMod + 3);
+                (int) ((menuButRects[1].getY() + (menuButRects[1].getHeight() / 2) + Registry.ffb.getStringBounds(g2D, "Новая игра").getMaxY() / 2) + shiftMod + 3));
 
         if (isOptionsOver) {
             shiftMod = 2;
@@ -257,7 +254,7 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
         }
         g2D.drawString("Настройки",
                 (int) (centerFrameWidth - Registry.ffb.getStringBounds(g2D, "Настройки").getWidth() / 2 - shiftMod - 3),
-                (menuButRects[2].getY() + (menuButRects[2].getHeight() / 2) + Registry.ffb.getStringBounds(g2D, "Настройки").getMaxY() / 2) + shiftMod + 3);
+                (int) ((menuButRects[2].getY() + (menuButRects[2].getHeight() / 2) + Registry.ffb.getStringBounds(g2D, "Настройки").getMaxY() / 2) + shiftMod + 3));
 
         if (isExitOver) {
             shiftMod = 2;
@@ -266,7 +263,7 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
         }
         g2D.drawString("Выход",
                 (int) (centerFrameWidth - Registry.ffb.getStringBounds(g2D, "Выход").getWidth() / 2 - shiftMod - 3),
-                (menuButRects[3].getY() + (menuButRects[3].getHeight() / 2) + Registry.ffb.getStringBounds(g2D, "Выход").getMaxY() / 2) + shiftMod + 3);
+                (int) ((menuButRects[3].getY() + (menuButRects[3].getHeight() / 2) + Registry.ffb.getStringBounds(g2D, "Выход").getMaxY() / 2) + shiftMod + 3));
 
 
         g2D.setColor(Color.ORANGE);
@@ -399,10 +396,14 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
         if (menuButRects[1].contains(e.getPoint())) {
             isNewGamePress = false;
 
-            log.info("Start a New game...");
             dispose();
 
-            new GameFrame();
+            try {
+                log.info("Start a New game...");
+                new GameFrame();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
         }
 
         if (menuButRects[2].contains(e.getPoint())) {
@@ -415,7 +416,7 @@ public class StartMenu extends JFrame implements MouseListener, MouseMotionListe
             isExitPress = false;
             log.info("Exit by press Exit button...");
 
-            IOM.saveAll();
+            SavesEngine.saveAll();
             System.exit(0);
         }
     }

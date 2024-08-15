@@ -1,4 +1,4 @@
-package game.decorations;
+package game.objects.decorations;
 
 import game.objects.AbstractDecor;
 
@@ -12,11 +12,10 @@ public class Tree extends AbstractDecor {
     public Tree(int ID, BufferedImage[] spriteList, Point2D p, float mult, int animSpeed) {
         setName("Tree");
 
-        setID(ID);
-        setSpritelist(spriteList);
+        setId(ID);
+        setSpriteList(spriteList);
         setScale(mult);
         setCenterPoint(p);
-//		setSrcDimension(parentDim);
 
         setComment("Evergreen tree in your field.");
         setIcon(new ImageIcon(spriteList[0]));
@@ -25,7 +24,5 @@ public class Tree extends AbstractDecor {
         if (animSpeed != -1) {
             setAniSpeed(animSpeed);
         }
-
-        createHash(415);
     }
 }

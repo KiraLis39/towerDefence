@@ -1,4 +1,4 @@
-package game.buildings;
+package game.objects.buildings;
 
 import game.config.Registry;
 import game.objects.AbstractBuilding;

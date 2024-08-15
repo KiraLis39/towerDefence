@@ -1,22 +1,22 @@
-package game.decorations;
+package game.objects.decorations;
 
 import game.objects.AbstractDecor;
+import lombok.Getter;
 
 import javax.swing.ImageIcon;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 
-
+@Getter
 public class Flower extends AbstractDecor {
 
     public Flower(int ID, BufferedImage[] spriteList, Point2D p, float mult, int animSpeed) {
         setName("FlowerMagenta");
 
-        setID(ID);
-        setSpritelist(spriteList);
+        setId(ID);
+        setSpriteList(spriteList);
         setScale(mult);
         setCenterPoint(p);
-//		setSrcDimension(parentDim);
 
         setComment("Its flower. Whats up!");
         setIcon(new ImageIcon(spriteList[0]));
@@ -25,7 +25,5 @@ public class Flower extends AbstractDecor {
         if (animSpeed != -1) {
             setAniSpeed(animSpeed);
         }
-
-        createHash(341);
     }
 }

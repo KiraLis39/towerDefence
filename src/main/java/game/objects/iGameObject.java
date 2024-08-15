@@ -32,13 +32,13 @@ public interface iGameObject {
 
     int getAniSpeed();
 
-    void setAniSpeed(int animSpeed);
+    void setAniSpeed(int aniSpeed);
 
     Point2D getCenterPoint();
 
     void setCenterPoint(Point2D p);
 
-    Rectangle2D getRectangle();
+    Rectangle2D getBounds();
 
     void draw(Graphics2D g2d, Rectangle2D parentRect);
 

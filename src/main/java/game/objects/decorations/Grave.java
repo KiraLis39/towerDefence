@@ -1,22 +1,22 @@
-package game.decorations;
+package game.objects.decorations;
 
 import game.objects.AbstractDecor;
+import lombok.Getter;
 
 import javax.swing.ImageIcon;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 
-
+@Getter
 public class Grave extends AbstractDecor {
 
     public Grave(int id, BufferedImage[] spriteList, Point2D p, float mult, int animSpeed) {
         setName("CrossGrave");
 
-        setID(id);
-        setSpritelist(spriteList);
+        setId(id);
+        setSpriteList(spriteList);
         setScale(mult);
         setCenterPoint(p);
-//		setSrcDimension(parentDim);
         if (animSpeed != -1) {
             setAniSpeed(animSpeed);
         }
@@ -28,7 +28,5 @@ public class Grave extends AbstractDecor {
         if (animSpeed != -1) {
             setAniSpeed(animSpeed);
         }
-
-        createHash(5);
     }
 }

@@ -1,19 +1,20 @@
-package game.decorations;
+package game.objects.decorations;
 
 import game.objects.AbstractDecor;
+import lombok.Getter;
 
 import javax.swing.ImageIcon;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 
-
+@Getter
 public class Dirt extends AbstractDecor {
 
     public Dirt(int ID, BufferedImage[] spriteList, Point2D p, float mult, int animSpeed) {
         setName("Dirt");
 
-        setID(ID);
-        setSpritelist(spriteList);
+        setId(ID);
+        setSpriteList(spriteList);
         setScale(mult);
 
         setCenterPoint(p);
@@ -29,7 +30,5 @@ public class Dirt extends AbstractDecor {
         if (animSpeed != -1) {
             setAniSpeed(animSpeed);
         }
-
-        createHash(742);
     }
 }

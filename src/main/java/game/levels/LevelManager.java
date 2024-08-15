@@ -2,10 +2,8 @@ package game.levels;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fox.FoxPointConverter;
-import game.buildings.BuildBase;
-import game.config.FoxAudioProcessor;
 import game.config.Registry;
-import game.decorations.DecorBase;
+import game.core.FoxAudioProcessor;
 import game.enums.TowerType;
 import game.gui.GameFrame;
 import game.mobs.Skeleton;
@@ -13,9 +11,13 @@ import game.mobs.Zombie;
 import game.objects.AbstractBuilding;
 import game.objects.AbstractDecor;
 import game.objects.AbstractMob;
+import game.objects.buildings.BuildBase;
+import game.objects.decorations.DecorBase;
+import game.subgui.ItemsFrame;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.swing.JOptionPane;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
@@ -28,36 +30,30 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static fox.FoxPointConverter.CONVERT_TYPE.POINT_TO_PERCENT;
 
 @Slf4j
+@Getter
 public class LevelManager {
     private final ObjectMapper mapper = new ObjectMapper();
     private final Map<Integer, Level> levels = new LinkedHashMap<>();
     private final Map<AbstractBuilding, Point2D> playerBuilds = new LinkedHashMap<>();
+    private final GameFrame gameFrame;
     private int activeLevel = 0;
-    private GameFrame gameFrame;
     private boolean isGameOver = false, isWin = false;
+    @Setter
+    private ItemsFrame itemsFrame;
 
-    public void initGameFrame(GameFrame gameFrame) {
+    public LevelManager(GameFrame gameFrame) {
         this.gameFrame = gameFrame;
     }
 
-    public void reloadMapFolder() throws IOException {
+    public void reloadMapFolder() {
         if (!Registry.levelsDir.exists()) {
             Registry.levelsDir.mkdir();
-        }
-
-        Set<Path> levels2;
-        try (Stream<Path> stream = Files.list(Path.of(Registry.levelsDir.toString()))) {
-            levels2 = stream.collect(Collectors.toSet());
-            if (levels2.isEmpty()) {
-                throw new NoSuchFileException("Levels array is null or empty");
-            }
         }
 
         isGameOver = false;
@@ -66,19 +62,22 @@ public class LevelManager {
         playerBuilds.clear();
         levels.clear();
 
-        try {
+        try (Stream<Path> stream = Files.list(Path.of(Registry.levelsDir.toString()))) {
             int i = 0;
-            for (Path path : levels2) {
+            for (Path path : stream.collect(Collectors.toSet())) {
                 levels.put(i, mapper.readValue(path.toFile(), Level.class));
                 i++;
             }
 
+            if (levels.isEmpty()) {
+                throw new NoSuchFileException("Levels array is null or empty");
+            }
+
             createDefaultCreativeLevel();
+            log.info("Map-files directory is loaded.");
         } catch (IOException e) {
             log.error("Error: {}", e.getMessage());
         }
-
-        log.info("Map-files directory is loaded.");
     }
 
     private void createDefaultCreativeLevel() throws IOException {
@@ -89,63 +88,6 @@ public class LevelManager {
 
         levels.put(0, Level.builder().build());
     }
-
-    public void saveLevel(
-            String saveName,
-            int lives,
-            int deaths,
-            int zombiesCount,
-            int skeletonsCount,
-            List<Point2D> greenKeys,
-            int rt,
-            int wt,
-            int gt,
-            int mt
-    ) throws IOException {
-        File saveMapFile = new File(Registry.levelsDir + "/" + saveName + ".map");
-        if (!saveMapFile.exists()) {
-            try {
-                saveMapFile.createNewFile();
-                log.info("saveMap: Saving new map : {}.map (dim: {}x{})", saveName,
-                        gameFrame.getCurrentBounds().getWidth(), gameFrame.getCurrentBounds().getHeight());
-            } catch (IOException e) {
-                log.error("Не удалось создать файл уровня '{}': {}", saveMapFile, e.getMessage());
-                return;
-            }
-        }
-
-        List<AbstractDecor> decos = levels.get(activeLevel).getDeco();
-        decos.forEach(d -> d.setCenterPoint(
-                FoxPointConverter.convert(POINT_TO_PERCENT, d.getCenterPoint(), gameFrame.getCurrentBounds())));
-        List<Point2D> mwPoints = greenKeys.stream()
-                .map(p -> FoxPointConverter.convert(POINT_TO_PERCENT, p, gameFrame.getCurrentBounds())).collect(Collectors.toList());
-        List<AbstractBuilding> buildings = levels.get(activeLevel).getBuilds();
-        buildings.forEach(b -> b.setCenterPoint(
-                FoxPointConverter.convert(POINT_TO_PERCENT, b.getCenterPoint(), gameFrame.getCurrentBounds())));
-
-        Level toSave = Level.builder()
-                .lives(lives)
-                .deaths(deaths)
-                .zombiesCount(zombiesCount)
-                .skeletonsCount(skeletonsCount)
-                .levelBackgroundName(levels.get(activeLevel).getLevelBackgroundName())
-                .greenTowersCount(gt)
-                .redTowersCount(rt)
-                .whiteTowersCount(wt)
-                .mageTowersCount(mt)
-                .decors(decos)
-                .builds(buildings)
-                .mobWayPoints(mwPoints)
-                .build();
-        mapper.writeValue(saveMapFile, toSave);
-
-        if (saveMapFile.exists()) {
-            JOptionPane.showMessageDialog(null,
-                    "Уровень " + saveMapFile.getName() + " успешно сохранен!",
-                    "Complete!", JOptionPane.INFORMATION_MESSAGE);
-        }
-    }
-
 
     public void writeNewItemPercentPoint(int itemID, Point2D persentPixelPoint) {
         if (persentPixelPoint == null) {
@@ -179,22 +121,22 @@ public class LevelManager {
 
     public void removeObject(Point2D point) {
         for (AbstractDecor decor : levels.get(activeLevel).getDeco()) {
-            if (decor.getRectangle().contains(point)) {
-                System.out.println("LevelManager: Removing deco '" + decor.getName() + "' with ID:" + decor.getID() + " from decorationsArray...");
+            if (decor.getBounds().contains(point)) {
+                System.out.println("LevelManager: Removing deco '" + decor.getName() + "' with ID:" + decor.getId() + " from decorationsArray...");
                 removeDecor(decor);
                 return;
             }
         }
 
         for (AbstractBuilding build : levels.get(activeLevel).getBuilds()) {
-            if (build.getRectangle().contains(point)) {
-                System.out.println("LevelManager: Removing build '" + build.getName() + "' with ID:" + build.getID() + " from buildsArray...");
+            if (build.getBounds().contains(point)) {
+                System.out.println("LevelManager: Removing build '" + build.getName() + "' with ID:" + build.getId() + " from buildsArray...");
                 removeBuild(build);
                 return;
             }
         }
 
-        for (Point2D p : itemsFrame.getGreenKeys()) {
+        for (Point2D p : itemsFrame.getNewGreenKeys()) {
             if (new Rectangle2D.Float((float) p.getX() - 3f, (float) (p.getY() - 3f), 6, 6).contains(point)) {
                 System.out.println("LevelManager: Removing MobWayKey '" + point + " from MobWayKeysArray...");
                 itemsFrame.removeGreenKey(p);
@@ -206,7 +148,6 @@ public class LevelManager {
     public void clearCurrentLevel() {
         levels.get(activeLevel).clearAll();
     }
-
 
     // getters-setters:
     public int getLevelLoadedIndex() {
@@ -263,20 +204,16 @@ public class LevelManager {
 
         Point2D p = new Point2D.Double(
                 towerPlace.getCenterPoint().getX(),
-                towerPlace.getCenterPoint().getY() - towerPlace.getRectangle().getHeight() / 2D);
+                towerPlace.getCenterPoint().getY() - towerPlace.getBounds().getHeight() / 2D);
 
         writeNewItemPercentPoint(towerType == 0 ? 201 : towerType == 1 ? 202 : towerType == 2 ? 203 : 204, p);
     }
 
-    public void unbuildTower(AbstractBuilding tower) {
+    public void removeTower(AbstractBuilding tower) {
         log.info("Destroying the Tower " + tower);
         FoxAudioProcessor.playSound("destroyTower");
         removeBuild(tower);
-        GameFrame.addBalls(tower.getCost());
-    }
-
-    public List<Point2D> getCurrentGreenKeysPercents() {
-        return levels.get(activeLevel).getGreenKeysPercents();
+        gameFrame.addBalls(tower.getCost());
     }
 
     public List<Point2D> getCurrentMobWay() {
@@ -325,7 +262,7 @@ public class LevelManager {
         List<AbstractDecor> decorByIndex = new LinkedList<>();
 
         for (AbstractDecor decor : levels.get(activeLevel).getDeco()) {
-            if (decor.getID() == index) {
+            if (decor.getId() == index) {
                 decorByIndex.add(decor);
             }
         }
@@ -350,6 +287,10 @@ public class LevelManager {
     }
 
     public void recheckData() {
-        levels.get(activeLevel).reCheckData();
+        levels.get(activeLevel).getDeco().clear();
+    }
+
+    public Level getActiveLevel() {
+        return levels.get(activeLevel);
     }
 }

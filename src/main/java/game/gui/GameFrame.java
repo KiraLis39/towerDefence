@@ -1,20 +1,24 @@
 package game.gui;
 
 import fox.FoxFontBuilder;
+import fox.FoxRender;
 import fox.images.FoxCursor;
-import game.buildings.BuildBase;
-import game.config.FoxAudioProcessor;
 import game.config.Registry;
-import game.config.SavesEngine;
-import game.decorations.DecorBase;
+import game.core.FoxAudioProcessor;
+import game.core.SavesEngine;
+import game.enums.TowerType;
 import game.levels.LevelManager;
 import game.objects.AbstractBuilding;
 import game.objects.AbstractDecor;
 import game.objects.AbstractMob;
+import game.objects.AbstractTower;
+import game.objects.buildings.BuildBase;
+import game.objects.decorations.DecorBase;
 import game.objects.iGameObject;
 import game.objects.iTower;
 import game.subgui.ItemsFrame;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.AbstractAction;
@@ -27,12 +31,10 @@ import java.awt.BasicStroke;
 import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
@@ -54,48 +56,47 @@ import java.util.List;
 
 @Slf4j
 public class GameFrame extends JFrame implements WindowStateListener, ComponentListener, MouseListener, MouseMotionListener, WindowListener, Runnable {
-    private static final int FRAME_WIDTH = 1440, FRAME_HEIGHT = 900;
-    private static BufferedImage memoryImage, ghostImage;
-
-    @Getter
-    private static MouseMotionListener MMList;
-
-    @Getter
-    private static MouseListener MList;
-    private static JFrame gameFrame;
-    private static ItemsFrame itemsFrame;
-    private static Boolean isPaused = false, isCreativeMode;
-    private static int balls = 0, memoryDecorID;
+    private final int FRAME_WIDTH = 1440, FRAME_HEIGHT = 900;
     private final Canvas canva;
     private final Rectangle2D[] upInfoRect = new Rectangle2D[6];
     private final Rectangle2D[] downCardRect = new Rectangle2D[4];
     private final int fullscreenKey = KeyEvent.VK_F11;
-    private final LevelManager levelManager = new LevelManager();
-    private BufferStrategy bs;
+    private final LevelManager levelManager;
+    private final JFrame gameFrame;
+    private BufferedImage memoryImage, ghostImage;
+    @Getter
+    private MouseMotionListener MMList;
+    @Getter
+    private MouseListener MList;
+    private ItemsFrame itemsFrame;
+
+    @Setter
+    private boolean isPaused = false, isCreativeMode;
+    private int balls = 0, memoryDecorID;
     private BufferedImage[] infos, cards;
     private Point mousePoint;
     private Font upCardsFont, downCardsFont, errTipFont, debugFont, littleTechFont;
     private Boolean isStoryPlayed = false, itemsInFocus = false;
     private Boolean redTowerOver = false, whiteTowerOver = false, greenTowerOver = false, mageTowerOver = false;
     private Boolean redTowerIsChosen = false, whiteTowerIsChosen = false, greenTowerIsChosen = false, mageTowerIsChosen = false;
-    private long spawnTimer;
     private List<Point2D> mobWay;
     private List<AbstractDecor> towerPlaces;
 
 
-    public GameFrame() {
-        this(-1);
+    public GameFrame() throws IOException {
+        this(-1, false);
     }
 
-    public GameFrame(int modeCode) {
-        isCreativeMode = StartMenu.cmodeUnlocked && modeCode == 139;
+    public GameFrame(int modeCode, boolean isCModeUnlocked) throws IOException {
+        levelManager = new LevelManager(this);
+        isCreativeMode = isCModeUnlocked && modeCode == 139;
         initialization();
 
         gameFrame = this;
         MMList = this;
         MList = this;
 
-        setTitle("Tower defence! v." + Registry.verse);
+        setTitle("Tower defence! v." + Registry.props.get("version"));
         setMinimumSize(new Dimension(FRAME_WIDTH, FRAME_HEIGHT));
         setPreferredSize(new Dimension(FRAME_WIDTH, FRAME_HEIGHT));
 
@@ -119,35 +120,6 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
         new Thread(this).start();
     }
 
-    public static void setsCursor(Cursor cur) {
-        gameFrame.setCursor(cur);
-    }
-
-    private static void setPause(boolean p) {
-        isPaused = p;
-    }
-
-    public static void resetMemoryImage() {
-        ghostImage = null;
-        memoryImage = null;
-    }
-
-    public static void resetMemoryDecorID() {
-        memoryDecorID = -1;
-    }
-
-    public static void addBalls(int cost) {
-        balls += cost;
-    }
-
-    public static JFrame getOwnFrame() {
-        return gameFrame;
-    }
-
-    public Rectangle2D getCurrentBounds() {
-        return this.canva.getBounds();
-    }
-
     private void initialization() {
         setupInAc();
 
@@ -167,6 +139,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
         Registry.sComb.getSprites("clouds", getImage("cloudsList"), 3, 2);
         Registry.sComb.getSprites("grass", getImage("grassList"), 3, 2);
         Registry.sComb.getSprites("defPlace", getImage("defPoint"), 1, 1);
+        Registry.sComb.getSprites("defButs", getImage("defPoint"), 1, 1);
 
         if (isCreativeMode()) {
             return;
@@ -176,6 +149,23 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
         cards = Registry.sComb.getSprites("cards", getImage("cardList"), 4, 2);
 
         Registry.sComb.getSprites("zombie", getImage("mobZombieList"), 3, 2);
+    }
+
+    public void resetMemoryImage() {
+        this.ghostImage = null;
+        this.memoryImage = null;
+    }
+
+    public void resetMemoryDecorID() {
+        memoryDecorID = -1;
+    }
+
+    public void addBalls(int cost) {
+        balls += cost;
+    }
+
+    public Rectangle2D getCurrentBounds() {
+        return this.canva.getBounds();
     }
 
     private BufferedImage getImage(String name) {
@@ -199,7 +189,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
         if (isCreativeMode && (itemsFrame == null || !itemsFrame.isVisible())) {
             log.info("Creating a new CreatorItemsFrame()...");
             levelManager.setLevelLoadedIndex(0);
-            itemsFrame = new ItemsFrame();
+            itemsFrame = new ItemsFrame(levelManager);
         } else {
             if (levelManager.getLevelLoadedIndex() != index) {
                 log.info("Loading the level " + index + "...");
@@ -208,7 +198,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             }
         }
 
-        setPause(false);
+        this.isPaused = false;
     }
 
     // game mechanic:
@@ -221,9 +211,9 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
 
     // creating map:
     private void changeItemBrush(MouseEvent e) {
-        if (e.getSource() instanceof JButton && itemsInFocus) {
-            if (((JButton) e.getSource()).getName().startsWith("itemButton_")) {
-                Icon ico = ((JButton) e.getSource()).getIcon();
+        if (e.getSource() instanceof JButton btn && itemsInFocus) {
+            if (btn.getName().startsWith("itemButton_")) {
+                Icon ico = btn.getIcon();
                 BufferedImage tmp = new BufferedImage(ico.getIconWidth(), ico.getIconHeight(), BufferedImage.TYPE_INT_ARGB);
                 Graphics2D g2d = (Graphics2D) tmp.getGraphics();
 
@@ -238,10 +228,9 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
 
                 g2d.dispose();
                 memoryImage = tmp;
-                memoryDecorID = Integer.parseInt(((JButton) e.getSource()).getName().split("_")[1]);
-                setsCursor(FoxCursor.createCursor(memoryImage, ((JButton) e.getSource()).getName()));
-                ItemsFrame.freeMouse = false;
-
+                memoryDecorID = Integer.parseInt(btn.getName().split("_")[1]);
+                setCursor(FoxCursor.createCursor(memoryImage, btn.getName()));
+                itemsFrame.setFreeMouse(false);
 
                 iGameObject gob = null;
                 try {
@@ -264,19 +253,17 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
     }
 
     private void selectObject(MouseEvent e) {
-        Component c = (Component) e.getSource();
-        if (c instanceof JButton) {
-            if (c.getName().startsWith("itemButton_")) {
-                c.setBackground(Color.GREEN.brighter());
+        if ((Component) e.getSource() instanceof JButton btn) {
+            if (btn.getName().startsWith("itemButton_")) {
+                btn.setBackground(Color.GREEN.brighter());
             }
         }
     }
 
     private void deselectObject(MouseEvent e) {
-        Component c = (Component) e.getSource();
-        if (c instanceof JButton) {
-            if (c.getName().startsWith("itemButton_")) {
-                c.setBackground(Color.GRAY);
+        if ((Component) e.getSource() instanceof JButton btn) {
+            if (btn.getName().startsWith("itemButton_")) {
+                btn.setBackground(Color.GRAY);
             }
         }
     }
@@ -285,7 +272,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
     @Override
     public void run() {
         isStoryPlayed = true;
-        spawnTimer = System.currentTimeMillis();
+        long spawnTimer = System.currentTimeMillis();
 
         while (isStoryPlayed) {
             if (isPaused) {
@@ -294,11 +281,12 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             }
 
             if (canva == null || canva.getBufferStrategy() == null) {
+                assert canva != null;
                 canva.createBufferStrategy(2);
             }
 
             try {
-                bs = canva.getBufferStrategy();
+                BufferStrategy bs = canva.getBufferStrategy();
                 do {
                     do {
                         update((Graphics2D) bs.getDrawGraphics());
@@ -309,7 +297,9 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
                 log.error("Error: {}", e.getMessage());
             }
 
-            if (System.currentTimeMillis() - spawnTimer > levelManager.spawnQuantity && !levelManager.isWin() && !levelManager.isGameover()) {
+            if (System.currentTimeMillis() - spawnTimer > levelManager.getActiveLevel().getSpawnQuantity()
+                    && !levelManager.isWin() && !levelManager.isGameOver()
+            ) {
                 spawnMob();
                 spawnTimer = System.currentTimeMillis();
             }
@@ -326,15 +316,14 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             return;
         }
 
-        rendering(g2D); // rendering hooks
+        Registry.render.setRender(g2D, FoxRender.RENDER.MED);
 
         drawBackfield(g2D); // background
         drawGroundDeco(g2D); // ground details
-        drawBuildings(g2D); // game.buildings
-        drawUpperDeco(g2D); // game.decorations
-        if (StartMenu.isDebugOn) {
-            drawMobway(g2D);
-        } // draw mobway line
+        drawBuildings(g2D); // game.objects.buildings
+        drawUpperDeco(g2D); // game.objects.decorations
+
+        drawMobway(g2D);
 
         if (ghostImage != null) {
             g2D.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.85f));
@@ -351,7 +340,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
         g2D.drawString("Fullscreen: " + KeyEvent.getKeyText(fullscreenKey), 25, 55);
 
         if (!isCreativeMode()) {
-            if (levelManager.isGameover()) {
+            if (levelManager.isGameOver()) {
                 drawUpCards(g2D); // upper info cards
                 drawDownCards(g2D); // down towers cards
                 g2D.setFont(upCardsFont);
@@ -370,25 +359,6 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
         }
 
         g2D.dispose();
-    }
-
-    private void rendering(Graphics2D g2D) {
-//			g2D.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.65f));
-        g2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2D.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-        g2D.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_NORMALIZE);
-        if (StartMenu.useSmoothing) {
-            if (StartMenu.useBicubic) {
-                g2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-            } else {
-                g2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            }
-        } else {
-            g2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        }
-//			g2D.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
-//			g2D.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
-//			g2D.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
     }
 
     private void drawBackfield(Graphics2D g2D) {
@@ -420,14 +390,12 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             } else {
                 decoEntry.draw(g2D, gameFrame.getBounds());
 
-                if (StartMenu.isDebugOn) {
-                    g2D.setColor(Color.ORANGE);
-                    g2D.drawRoundRect(
-                            (int) decoEntry.getRectangle().getX(),
-                            (int) decoEntry.getRectangle().getY(),
-                            (int) decoEntry.getRectangle().getWidth(),
-                            (int) decoEntry.getRectangle().getHeight(), 9, 9);
-                }
+                g2D.setColor(Color.ORANGE);
+                g2D.drawRoundRect(
+                        (int) decoEntry.getBounds().getX(),
+                        (int) decoEntry.getBounds().getY(),
+                        (int) decoEntry.getBounds().getWidth(),
+                        (int) decoEntry.getBounds().getHeight(), 9, 9);
             }
         }
     }
@@ -442,18 +410,16 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
                 } else {
                     buildEntry.draw(g2D, gameFrame.getBounds());
 
-                    if (StartMenu.isDebugOn) {
-                        try {
-                            g2D.setColor(Color.CYAN);
-                            g2D.drawRoundRect(
-                                    (int) buildEntry.getRectangle().getX(),
-                                    (int) buildEntry.getRectangle().getY(),
-                                    (int) buildEntry.getRectangle().getWidth(),
-                                    (int) buildEntry.getRectangle().getHeight(), 9, 9);
-                        } catch (Exception e) {
-                            log.error("Не могу отрисовать ректангл объекта " + buildEntry.getName()
-                                    + " #" + buildEntry.getID() + ": " + e.getMessage());
-                        }
+                    try {
+                        g2D.setColor(Color.CYAN);
+                        g2D.drawRoundRect(
+                                (int) buildEntry.getBounds().getX(),
+                                (int) buildEntry.getBounds().getY(),
+                                (int) buildEntry.getBounds().getWidth(),
+                                (int) buildEntry.getBounds().getHeight(), 9, 9);
+                    } catch (Exception e) {
+                        log.error("Не могу отрисовать ректангл объекта " + buildEntry.getName()
+                                + " #" + buildEntry.getId() + ": " + e.getMessage());
                     }
 
                     if (redTowerIsChosen || whiteTowerIsChosen || greenTowerIsChosen || mageTowerIsChosen) {
@@ -462,13 +428,13 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
                         }
 
                         for (AbstractDecor tPlace : towerPlaces) {
-                            if (tPlace.getRectangle().contains(mousePoint)) {
+                            if (tPlace.getBounds().contains(mousePoint)) {
                                 g2D.setColor(Color.GREEN);
                                 g2D.drawRoundRect(
-                                        (int) tPlace.getRectangle().getX(),
-                                        (int) tPlace.getRectangle().getY(),
-                                        (int) tPlace.getRectangle().getWidth(),
-                                        (int) tPlace.getRectangle().getHeight(), 9, 9);
+                                        (int) tPlace.getBounds().getX(),
+                                        (int) tPlace.getBounds().getY(),
+                                        (int) tPlace.getBounds().getWidth(),
+                                        (int) tPlace.getBounds().getHeight(), 9, 9);
                             }
                         }
                     }
@@ -492,14 +458,12 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             } else {
                 deco.draw(g2D, gameFrame.getBounds());
 
-                if (StartMenu.isDebugOn) {
-                    g2D.setColor(Color.ORANGE);
-                    g2D.drawRoundRect(
-                            (int) deco.getRectangle().getX(),
-                            (int) deco.getRectangle().getY(),
-                            (int) deco.getRectangle().getWidth(),
-                            (int) deco.getRectangle().getHeight(), 9, 9);
-                }
+                g2D.setColor(Color.ORANGE);
+                g2D.drawRoundRect(
+                        (int) deco.getBounds().getX(),
+                        (int) deco.getBounds().getY(),
+                        (int) deco.getBounds().getWidth(),
+                        (int) deco.getBounds().getHeight(), 9, 9);
             }
         }
     }
@@ -510,8 +474,8 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
 
         if (mobWay.size() == 1) {
             g2D.drawOval(
-                    (int) ((mobWay.get(0).getX() * 100f - 3f)),
-                    (int) ((mobWay.get(0).getY() * 100f - 3f)),
+                    (int) ((mobWay.getFirst().getX() * 100f - 3f)),
+                    (int) ((mobWay.getFirst().getY() * 100f - 3f)),
                     6, 6);
             return;
         }
@@ -557,12 +521,10 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
                     System.out.println("AbstractMob: Mob " + getName() + " has been destroyed by pass-end.");
                 }
 
-                if (StartMenu.isDebugOn) {
-                    g2D.setColor(Color.YELLOW);
+                g2D.setColor(Color.YELLOW);
 
-                    Rectangle2D rect = mob.getRectangle();
-                    g2D.drawRect((int) rect.getX(), (int) (rect.getY()), (int) rect.getWidth(), (int) rect.getHeight());
-                }
+                Rectangle2D rect = mob.getBounds();
+                g2D.drawRect((int) rect.getX(), (int) (rect.getY()), (int) rect.getWidth(), (int) rect.getHeight());
             }
         }
     }
@@ -570,9 +532,9 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
     private void checkTowerActivity(Graphics2D g2D) {
         AbstractMob aim;
         for (AbstractBuilding building : levelManager.getCurrentBuilds()) {
-            if (building instanceof iTower) {
-                if ((aim = ((iTower) building).scanArea(g2D)) != null) {
-                    ((iTower) building).attack(aim, g2D);
+            if (building instanceof iTower tower) {
+                if ((aim = tower.scanArea(g2D, levelManager.getCurrentMobs())) != null) {
+                    tower.attack(aim, g2D);
                 }
             }
         }
@@ -621,52 +583,84 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
         int countY = 33;
 
         g2D.setFont(downCardsFont);
-        if (levelManager.getTowersCount(0) > 0) {
+        if (levelManager.getTowersCount(TowerType.WHITE) > 0) {
             if (redTowerOver) {
-                g2D.drawImage(cards[0], (int) downCardRect[0].getX(), (int) downCardRect[0].getY() - 3, (int) downCardRect[0].getWidth(), (int) downCardRect[0].getHeight(), canva);
-                g2D.drawString(String.valueOf(levelManager.getTowersCount(0)), (int) downCardRect[0].getX() + countX, (int) downCardRect[0].getY() + countY - 3);
+                g2D.drawImage(cards[0],
+                        (int) downCardRect[0].getX(), (int) downCardRect[0].getY() - 3,
+                        (int) downCardRect[0].getWidth(), (int) downCardRect[0].getHeight(), canva);
+                g2D.drawString(String.valueOf(levelManager.getTowersCount(TowerType.WHITE)),
+                        (int) downCardRect[0].getX() + countX, (int) downCardRect[0].getY() + countY - 3);
             } else {
-                g2D.drawImage(cards[0], (int) downCardRect[0].getX(), (int) downCardRect[0].getY(), (int) downCardRect[0].getWidth(), (int) downCardRect[0].getHeight(), canva);
-                g2D.drawString(String.valueOf(levelManager.getTowersCount(0)), (int) downCardRect[0].getX() + countX, (int) downCardRect[0].getY() + countY);
+                g2D.drawImage(cards[0],
+                        (int) downCardRect[0].getX(), (int) downCardRect[0].getY(),
+                        (int) downCardRect[0].getWidth(), (int) downCardRect[0].getHeight(), canva);
+                g2D.drawString(String.valueOf(levelManager.getTowersCount(TowerType.WHITE)),
+                        (int) downCardRect[0].getX() + countX, (int) downCardRect[0].getY() + countY);
             }
         } else {
-            g2D.drawImage(cards[4], (int) downCardRect[0].getX(), (int) downCardRect[0].getY(), (int) downCardRect[0].getWidth(), (int) downCardRect[0].getHeight(), canva);
+            g2D.drawImage(cards[4],
+                    (int) downCardRect[0].getX(), (int) downCardRect[0].getY(),
+                    (int) downCardRect[0].getWidth(), (int) downCardRect[0].getHeight(), canva);
         }
 
-        if (levelManager.getTowersCount(1) > 0) {
+        if (levelManager.getTowersCount(TowerType.GREEN) > 0) {
             if (whiteTowerOver) {
-                g2D.drawImage(cards[1], (int) downCardRect[1].getX(), (int) downCardRect[1].getY() - 3, (int) downCardRect[1].getWidth(), (int) downCardRect[1].getHeight(), canva);
-                g2D.drawString(String.valueOf(levelManager.getTowersCount(1)), (int) downCardRect[1].getX() + countX, (int) downCardRect[1].getY() + countY - 3);
+                g2D.drawImage(cards[1],
+                        (int) downCardRect[1].getX(), (int) downCardRect[1].getY() - 3,
+                        (int) downCardRect[1].getWidth(), (int) downCardRect[1].getHeight(), canva);
+                g2D.drawString(String.valueOf(levelManager.getTowersCount(TowerType.GREEN)),
+                        (int) downCardRect[1].getX() + countX, (int) downCardRect[1].getY() + countY - 3);
             } else {
-                g2D.drawImage(cards[1], (int) downCardRect[1].getX(), (int) downCardRect[1].getY(), (int) downCardRect[1].getWidth(), (int) downCardRect[1].getHeight(), canva);
-                g2D.drawString(String.valueOf(levelManager.getTowersCount(1)), (int) downCardRect[1].getX() + countX, (int) downCardRect[1].getY() + countY);
+                g2D.drawImage(cards[1],
+                        (int) downCardRect[1].getX(), (int) downCardRect[1].getY(),
+                        (int) downCardRect[1].getWidth(), (int) downCardRect[1].getHeight(), canva);
+                g2D.drawString(String.valueOf(levelManager.getTowersCount(TowerType.GREEN)),
+                        (int) downCardRect[1].getX() + countX, (int) downCardRect[1].getY() + countY);
             }
         } else {
-            g2D.drawImage(cards[5], (int) downCardRect[1].getX(), (int) downCardRect[1].getY(), (int) downCardRect[1].getWidth(), (int) downCardRect[1].getHeight(), canva);
+            g2D.drawImage(cards[5],
+                    (int) downCardRect[1].getX(), (int) downCardRect[1].getY(),
+                    (int) downCardRect[1].getWidth(), (int) downCardRect[1].getHeight(), canva);
         }
 
-        if (levelManager.getTowersCount(2) > 0) {
+        if (levelManager.getTowersCount(TowerType.RED) > 0) {
             if (greenTowerOver) {
-                g2D.drawImage(cards[2], (int) downCardRect[2].getX(), (int) downCardRect[2].getY() - 3, (int) downCardRect[2].getWidth(), (int) downCardRect[2].getHeight(), canva);
-                g2D.drawString(String.valueOf(levelManager.getTowersCount(2)), (int) downCardRect[2].getX() + countX, (int) downCardRect[2].getY() + countY - 3);
+                g2D.drawImage(cards[2],
+                        (int) downCardRect[2].getX(), (int) downCardRect[2].getY() - 3,
+                        (int) downCardRect[2].getWidth(), (int) downCardRect[2].getHeight(), canva);
+                g2D.drawString(String.valueOf(levelManager.getTowersCount(TowerType.RED)),
+                        (int) downCardRect[2].getX() + countX, (int) downCardRect[2].getY() + countY - 3);
             } else {
-                g2D.drawImage(cards[2], (int) downCardRect[2].getX(), (int) downCardRect[2].getY(), (int) downCardRect[2].getWidth(), (int) downCardRect[2].getHeight(), canva);
-                g2D.drawString(String.valueOf(levelManager.getTowersCount(2)), (int) downCardRect[2].getX() + countX, (int) downCardRect[2].getY() + countY);
+                g2D.drawImage(cards[2],
+                        (int) downCardRect[2].getX(), (int) downCardRect[2].getY(),
+                        (int) downCardRect[2].getWidth(), (int) downCardRect[2].getHeight(), canva);
+                g2D.drawString(String.valueOf(levelManager.getTowersCount(TowerType.RED)),
+                        (int) downCardRect[2].getX() + countX, (int) downCardRect[2].getY() + countY);
             }
         } else {
-            g2D.drawImage(cards[6], (int) downCardRect[2].getX(), (int) downCardRect[2].getY(), (int) downCardRect[2].getWidth(), (int) downCardRect[2].getHeight(), canva);
+            g2D.drawImage(cards[6],
+                    (int) downCardRect[2].getX(), (int) downCardRect[2].getY(),
+                    (int) downCardRect[2].getWidth(), (int) downCardRect[2].getHeight(), canva);
         }
 
-        if (levelManager.getTowersCount(3) > 0) {
+        if (levelManager.getTowersCount(TowerType.MAGE) > 0) {
             if (mageTowerOver) {
-                g2D.drawImage(cards[3], (int) downCardRect[3].getX(), (int) downCardRect[3].getY() - 3, (int) downCardRect[3].getWidth(), (int) downCardRect[3].getHeight(), canva);
-                g2D.drawString(String.valueOf(levelManager.getTowersCount(3)), (int) downCardRect[3].getX() + countX, (int) downCardRect[3].getY() + countY - 3);
+                g2D.drawImage(cards[3],
+                        (int) downCardRect[3].getX(), (int) downCardRect[3].getY() - 3,
+                        (int) downCardRect[3].getWidth(), (int) downCardRect[3].getHeight(), canva);
+                g2D.drawString(String.valueOf(levelManager.getTowersCount(TowerType.MAGE)),
+                        (int) downCardRect[3].getX() + countX, (int) downCardRect[3].getY() + countY - 3);
             } else {
-                g2D.drawImage(cards[3], (int) downCardRect[3].getX(), (int) downCardRect[3].getY(), (int) downCardRect[3].getWidth(), (int) downCardRect[3].getHeight(), canva);
-                g2D.drawString(String.valueOf(levelManager.getTowersCount(3)), (int) downCardRect[3].getX() + countX, (int) downCardRect[3].getY() + countY);
+                g2D.drawImage(cards[3],
+                        (int) downCardRect[3].getX(), (int) downCardRect[3].getY(),
+                        (int) downCardRect[3].getWidth(), (int) downCardRect[3].getHeight(), canva);
+                g2D.drawString(String.valueOf(levelManager.getTowersCount(TowerType.MAGE)),
+                        (int) downCardRect[3].getX() + countX, (int) downCardRect[3].getY() + countY);
             }
         } else {
-            g2D.drawImage(cards[7], (int) downCardRect[3].getX(), (int) downCardRect[3].getY(), (int) downCardRect[3].getWidth(), (int) downCardRect[3].getHeight(), canva);
+            g2D.drawImage(cards[7],
+                    (int) downCardRect[3].getX(), (int) downCardRect[3].getY(),
+                    (int) downCardRect[3].getWidth(), (int) downCardRect[3].getHeight(), canva);
         }
     }
 
@@ -686,14 +680,14 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
         towerPlaces = levelManager.getCurrentDeco(199);
 
         for (AbstractBuilding cbu : levelManager.getCurrentBuilds()) {
-            if (cbu instanceof iTower) {
-                cbu.resetSeakArea();
+            if (cbu instanceof AbstractTower tow) {
+                tow.resetSeekArea();
             }
         }
     }
 
     private void resetBrush() throws IOException {
-        ItemsFrame.resetBrush();
+        itemsFrame.resetBrush();
         setCursor(FoxCursor.createCursor(Paths.get("cur0")));
         redTowerIsChosen = false;
         whiteTowerIsChosen = false;
@@ -732,8 +726,8 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             return;
         }
 
-        Double wPercent = getWidth() / 100D;
-        Double hPercent = getHeight() / 100D;
+        double wPercent = getWidth() / 100D;
+        double hPercent = getHeight() / 100D;
 
         float plateWidth = (float) (wPercent * 5D);
         float upCmod = (float) (hPercent * 2D);
@@ -750,7 +744,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
 
         plateWidth = (float) (wPercent * 7.5D);
         upCmod = getHeight() - 200;
-        float wShift = (float) (wPercent * 1D);
+        float wShift = (float) wPercent;
 
         downCardRect[0] = new Rectangle2D.Float(wShift, upCmod, plateWidth, plateWidth * 1.5f);
         downCardRect[1] = new Rectangle2D.Float(wShift + plateWidth + 5f, upCmod, plateWidth, plateWidth * 1.5f);
@@ -765,14 +759,14 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             changeItemBrush(e);
         } else {
             // creating percents by point:
-            if (ItemsFrame.freeMouse) {
-                if (ItemsFrame.addPointToolIsSelected) {
-                    ItemsFrame.addGreenKey(e.getPoint());
-                } else if (ItemsFrame.remPointToolIsSelected) {
+            if (itemsFrame.isFreeMouse()) {
+                if (itemsFrame.isAddPointToolIsSelected()) {
+                    itemsFrame.addGreenKey(e.getPoint());
+                } else if (itemsFrame.isRemPointToolIsSelected()) {
                     levelManager.removeObject(e.getPoint());
-                } else if (ItemsFrame.defSquareToolIsSelected) {
-                    System.out.println("ItemsFrame.defSquareToolIsSelected: " + ItemsFrame.defSquareToolIsSelected);
-//					MapManager.getCurrentLevel().addBuild(new RedDefenceTower());
+                } else if (itemsFrame.isDefSquareToolIsSelected()) {
+                    System.out.println("ItemsFrame.defSquareToolIsSelected");
+//					MapManager.getCurrentLevel().addBuild(RedDefenceTower);
                     System.out.println("writing new Item: " + 199 + " by percentPoint " + e.getPoint());
                     levelManager.writeNewItemPercentPoint(199, e.getPoint());
                 }
@@ -792,13 +786,13 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
 
             if (redTowerIsChosen) {
                 for (AbstractDecor tPlace : towerPlaces) {
-                    if (tPlace.getRectangle().contains(e.getPoint())) {
+                    if (tPlace.getBounds().contains(e.getPoint())) {
                         System.out.println("ставим red башню в точку " + e.getPoint() + " вместо " + tPlace);
                         levelManager.buildTower(tPlace, 0); // index "0" - it`s Red Tower.
 
                         redTowerIsChosen = false;
-                        levelManager.decreaseTowerCount(0);
-                        ItemsFrame.resetBrush();
+                        levelManager.decreaseTowerCount(TowerType.WHITE);
+                        itemsFrame.resetBrush();
                         break;
                     }
                 }
@@ -806,13 +800,13 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
 
             if (whiteTowerIsChosen) {
                 for (AbstractDecor tPlace : towerPlaces) {
-                    if (tPlace.getRectangle().contains(e.getPoint())) {
+                    if (tPlace.getBounds().contains(e.getPoint())) {
                         System.out.println("ставим white башню в точку " + e.getPoint() + " вместо " + tPlace);
                         levelManager.buildTower(tPlace, 1); // index "1" - it`s White Tower.
 
                         whiteTowerIsChosen = false;
-                        levelManager.decreaseTowerCount(1);
-                        ItemsFrame.resetBrush();
+                        levelManager.decreaseTowerCount(TowerType.GREEN);
+                        itemsFrame.resetBrush();
                         break;
                     }
                 }
@@ -820,13 +814,13 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
 
             if (greenTowerIsChosen) {
                 for (AbstractDecor tPlace : towerPlaces) {
-                    if (tPlace.getRectangle().contains(e.getPoint())) {
+                    if (tPlace.getBounds().contains(e.getPoint())) {
                         System.out.println("ставим green башню в точку " + e.getPoint() + " вместо " + tPlace);
                         levelManager.buildTower(tPlace, 2); // index "2" - it`s Green Tower.
 
                         greenTowerIsChosen = false;
-                        levelManager.decreaseTowerCount(2);
-                        ItemsFrame.resetBrush();
+                        levelManager.decreaseTowerCount(TowerType.RED);
+                        itemsFrame.resetBrush();
                         break;
                     }
                 }
@@ -834,13 +828,13 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
 
             if (mageTowerIsChosen) {
                 for (AbstractDecor tPlace : towerPlaces) {
-                    if (tPlace.getRectangle().contains(e.getPoint())) {
+                    if (tPlace.getBounds().contains(e.getPoint())) {
                         System.out.println("ставим mage башню в точку " + e.getPoint() + " вместо " + tPlace);
                         levelManager.buildTower(tPlace, 3); // index "3" - it`s Mage Tower.
 
                         mageTowerIsChosen = false;
-                        levelManager.decreaseTowerCount(3);
-                        ItemsFrame.resetBrush();
+                        levelManager.decreaseTowerCount(TowerType.MAGE);
+                        itemsFrame.resetBrush();
                         break;
                     }
                 }
@@ -849,9 +843,9 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             /* If mouse over exist tower*/
             if (e.getClickCount() >= 2 && e.getButton() == 1) {
                 for (AbstractBuilding build : levelManager.getCurrentBuilds()) {
-                    if (build instanceof iTower) {
-                        if (build.getRectangle().contains(e.getPoint())) {
-                            levelManager.unbuildTower(build);
+                    if (build instanceof iTower tower) {
+                        if (build.getBounds().contains(e.getPoint())) {
+                            levelManager.removeTower(build);
                             break;
                         }
                     }
@@ -866,7 +860,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
         iGameObject gob;
         Graphics2D g2d;
 
-        if (redTowerOver && levelManager.getTowersCount(0) > 0 && !redTowerIsChosen) {
+        if (redTowerOver && levelManager.getTowersCount(TowerType.WHITE) > 0 && !redTowerIsChosen) {
             setCursor(Registry.redTowerCur);
             redTowerIsChosen = true;
 
@@ -881,7 +875,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             redTowerIsChosen = false;
         }
 
-        if (whiteTowerOver && levelManager.getTowersCount(1) > 0 && !whiteTowerIsChosen) {
+        if (whiteTowerOver && levelManager.getTowersCount(TowerType.GREEN) > 0 && !whiteTowerIsChosen) {
             setCursor(Registry.whiteTowerCur);
             whiteTowerIsChosen = true;
 
@@ -896,7 +890,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             whiteTowerIsChosen = false;
         }
 
-        if (greenTowerOver && levelManager.getTowersCount(2) > 0 && !greenTowerIsChosen) {
+        if (greenTowerOver && levelManager.getTowersCount(TowerType.RED) > 0 && !greenTowerIsChosen) {
             setCursor(Registry.greenTowerCur);
             greenTowerIsChosen = true;
 
@@ -911,7 +905,7 @@ public class GameFrame extends JFrame implements WindowStateListener, ComponentL
             greenTowerIsChosen = false;
         }
 
-        if (mageTowerOver && levelManager.getTowersCount(3) > 0 && !mageTowerIsChosen) {
+        if (mageTowerOver && levelManager.getTowersCount(TowerType.MAGE) > 0 && !mageTowerIsChosen) {
             setCursor(Registry.mageTowerCur);
             mageTowerIsChosen = true;
 

@@ -1,4 +1,4 @@
-package game.decorations;
+package game.objects.decorations;
 
 import game.config.Registry;
 import game.objects.AbstractDecor;
@@ -19,8 +19,8 @@ public class DecorBase {
             case 106 -> new Grave(106, new BufferedImage[]{Registry.sComb.getSprites("decos")[6]}, p, 0.00075f, -1);
             case 107 -> new Bush(107, new BufferedImage[]{Registry.sComb.getSprites("decos")[7]}, p, 0.00075f, -1);
             case 108 -> new Flower(108, new BufferedImage[]{Registry.sComb.getSprites("decos")[8]}, p, 0.0004f, -1);
-            case 109 -> new Mushrum(109, new BufferedImage[]{Registry.sComb.getSprites("decos")[9]}, p, 0.00025f, -1);
-            case 110 -> new Mushrum(110, new BufferedImage[]{Registry.sComb.getSprites("decos")[10]}, p, 0.00025f, -1);
+            case 109 -> new Mushroom(109, new BufferedImage[]{Registry.sComb.getSprites("decos")[9]}, p, 0.00025f, -1);
+            case 110 -> new Mushroom(110, new BufferedImage[]{Registry.sComb.getSprites("decos")[10]}, p, 0.00025f, -1);
             case 111 ->
                     new WavingGrass(111, new BufferedImage[]{Registry.sComb.getSprites("grass")[0], Registry.sComb.getSprites("grass")[1],
                             Registry.sComb.getSprites("grass")[2]}, p, 0.0004f, 300);
@@ -28,7 +28,7 @@ public class DecorBase {
                     new RotatingFlowers(112, new BufferedImage[]{Registry.sComb.getSprites("grass")[3], Registry.sComb.getSprites("grass")[4],
                             Registry.sComb.getSprites("grass")[5]}, p, 0.0003f, 100);
             case 113 -> new Bush(113, new BufferedImage[]{Registry.sComb.getSprites("decos_2")[0]}, p, 0.0004f, -1);
-            case 114 -> new Mushrum(114, new BufferedImage[]{Registry.sComb.getSprites("decos_2")[1]}, p, 0.0002f, -1);
+            case 114 -> new Mushroom(114, new BufferedImage[]{Registry.sComb.getSprites("decos_2")[1]}, p, 0.0002f, -1);
             case 115 -> new Flower(115, new BufferedImage[]{Registry.sComb.getSprites("decos_2")[2]}, p, 0.00025f, -1);
             case 116 -> new Rock(116, new BufferedImage[]{Registry.sComb.getSprites("decos_2")[3]}, p, 0.0002f, -1);
             case 117 -> new Rock(117, new BufferedImage[]{Registry.sComb.getSprites("decos_2")[4]}, p, 0.0002f, -1);

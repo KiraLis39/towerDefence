@@ -1,6 +1,11 @@
-package game.config;
+package game.core;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import game.config.GameConfiguration;
+import game.config.Registry;
+import game.config.UserConf;
+import game.config.UserSave;
+import game.levels.Level;
 
 import java.io.File;
 import java.io.IOException;
@@ -50,6 +55,14 @@ public final class SavesEngine {
     public static void save(UserSave userSave) {
         try {
             new ObjectMapper().writeValue(Registry.playerSaveFilePath, userSave);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void save(Level level) {
+        try {
+            new ObjectMapper().writeValue(new File(Registry.levelsDir + "/" + level.getLevelName() + ".map"), level);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

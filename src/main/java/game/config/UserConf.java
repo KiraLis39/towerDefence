@@ -15,23 +15,29 @@ import lombok.Setter;
 @AllArgsConstructor
 @RequiredArgsConstructor
 public class UserConf {
+    @Builder.Default
+    public boolean isUseBicubic = true;
+    @Builder.Default
+    public boolean isDebugMode = true;
     private String userName;
-
-    private volatile FoxRender.RENDER quality;
-
+    @Builder.Default
+    private volatile FoxRender.RENDER quality = FoxRender.RENDER.MED;
     @Builder.Default
     private volatile boolean isFullScreen = true;
-
     @Builder.Default
     private volatile boolean showLogo = true;
-
-    private volatile int musicVolume;
-
-    private volatile boolean musicMuted;
-
-    private volatile int soundVolume;
-
-    private volatile boolean soundMuted;
+    @Builder.Default
+    private volatile int musicVolume = 100;
+    @Builder.Default
+    private volatile boolean musicMuted = false;
+    @Builder.Default
+    private volatile int soundVolume = 100;
+    @Builder.Default
+    private volatile boolean soundMuted = false;
+    @Builder.Default
+    private boolean isCreativeMode = false;
+    @Builder.Default
+    private boolean useSmoothing = true;
 
     public void nextQuality() {
         int curQ = quality.ordinal();

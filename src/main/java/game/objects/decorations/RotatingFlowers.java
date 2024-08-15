@@ -1,4 +1,4 @@
-package game.decorations;
+package game.objects.decorations;
 
 import game.objects.AbstractDecor;
 
@@ -7,25 +7,23 @@ import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 
 
-public class WavingGrass extends AbstractDecor {
+public class RotatingFlowers extends AbstractDecor {
 
-    public WavingGrass(int id, BufferedImage[] spriteList, Point2D p, float mult, int animSpeed) {
-        setName("WavingGrass");
+    public RotatingFlowers(int ID, BufferedImage[] spriteList, Point2D p, float mult, int animSpeed) {
+        setName("RotatingFlowers");
 
-        setID(id);
-        setSpritelist(spriteList);
+        setId(ID);
+        setSpriteList(spriteList);
         setScale(mult);
         setCenterPoint(p);
         setAnimated(true);
 
-        setComment("Animated waving grass... beauty, not it?");
+        setComment("Little, rotating flowers above your head..");
         setIcon(new ImageIcon(spriteList[0]));
         setOverdraw(true);
 
         if (animSpeed != -1) {
             setAniSpeed(animSpeed);
         }
-
-        createHash(417);
     }
 }

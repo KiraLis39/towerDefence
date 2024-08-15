@@ -7,10 +7,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.Color;
 import java.awt.Dialog;
 
-
-@SuppressWarnings("serial")
 public class OptionsDialog extends JDialog {
-
     public OptionsDialog(StartMenu parentFrame, boolean isModal) {
         super(parentFrame, isModal);
 

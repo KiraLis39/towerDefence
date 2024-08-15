@@ -1,4 +1,4 @@
-package game.decorations;
+package game.objects.decorations;
 
 import game.objects.AbstractDecor;
 
@@ -12,8 +12,8 @@ public class DefencePlace extends AbstractDecor {
     public DefencePlace(int ID, BufferedImage[] spriteList, Point2D p, float mult, int animSpeed) {
         setName("DefenceTowerPlace");
 
-        setID(ID);
-        setSpritelist(spriteList);
+        setId(ID);
+        setSpriteList(spriteList);
         setScale(mult);
 
         setCenterPoint(p);
@@ -29,7 +29,5 @@ public class DefencePlace extends AbstractDecor {
         if (animSpeed != -1) {
             setAniSpeed(animSpeed);
         }
-
-        createHash(744);
     }
 }

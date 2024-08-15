@@ -1,0 +1,12 @@
+app:
+  version: 0.0.2
+
+extensions:
+  config: .json
+  user: .json
+  save: .json
+  level: .map
+
+game:
+  width: 1024
+  height: 768

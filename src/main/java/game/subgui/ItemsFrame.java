@@ -1,12 +1,16 @@
 package game.subgui;
 
 import fox.FoxFontBuilder;
-import game.buildings.BuildBase;
+import fox.FoxPointConverter;
 import game.config.Registry;
-import game.decorations.DecorBase;
-import game.gui.GameFrame;
+import game.core.SavesEngine;
+import game.enums.TowerType;
+import game.levels.Level;
+import game.levels.LevelManager;
 import game.objects.AbstractBuilding;
 import game.objects.AbstractDecor;
+import game.objects.buildings.BuildBase;
+import game.objects.decorations.DecorBase;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -34,23 +38,36 @@ import java.awt.geom.Point2D;
 import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import static fox.FoxPointConverter.CONVERT_TYPE.POINT_TO_PERCENT;
+
+@Setter
 @Getter
 public class ItemsFrame extends JFrame {
     private final List<Point2D> newGreenKeys = new LinkedList<>();
-    public Boolean addPointToolIsSelected = false, remPointToolIsSelected = false, freeMouse = true, defSquareToolIsSelected = false;
-    private JFrame itemsFrame;
+    private boolean addPointToolIsSelected = false, remPointToolIsSelected = false, freeMouse = true, defSquareToolIsSelected = false;
+    private ItemsFrame itemsFrame;
     private JPanel content;
     private JPanel newMapNamer;
     private JTextField addressArea;
+    private LevelManager levelManager;
 
     @Getter
     @Setter
     private int lives, deaths, zombiesCount, skeletonsCount, redTowerCount, whiteTowerCount, greenTowerCount, mageTowerCount;
 
 
-    public ItemsFrame() {
-        itemsFrame = this;
+    public ItemsFrame(LevelManager levelManager) {
+        this.itemsFrame = this;
+        this.levelManager = levelManager;
+        this.levelManager.setItemsFrame(this.itemsFrame);
+
+        setTitle("Items pack:");
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        setMinimumSize(new Dimension(250, 250));
+        setLayout(new BorderLayout());
+        setAlwaysOnTop(true);
 
         lives = levelManager.getCurrentLifesCount();
         deaths = levelManager.getCurrentDethsCount();
@@ -58,16 +75,10 @@ public class ItemsFrame extends JFrame {
         zombiesCount = levelManager.getZombieCount();
         skeletonsCount = levelManager.getSkeletonCount();
 
-        redTowerCount = levelManager.getTowersCount(0);
-        whiteTowerCount = levelManager.getTowersCount(1);
-        greenTowerCount = levelManager.getTowersCount(2);
-        mageTowerCount = levelManager.getTowersCount(3);
-
-        setTitle("Items pack:");
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        setMinimumSize(new Dimension(250, 250));
-        setLayout(new BorderLayout());
-        setAlwaysOnTop(true);
+        whiteTowerCount = levelManager.getTowersCount(TowerType.WHITE);
+        greenTowerCount = levelManager.getTowersCount(TowerType.GREEN);
+        redTowerCount = levelManager.getTowersCount(TowerType.RED);
+        mageTowerCount = levelManager.getTowersCount(TowerType.MAGE);
 
         newMapNamer = new JPanel(new GridLayout(0, 1, 3, 3)) {
             {
@@ -84,22 +95,21 @@ public class ItemsFrame extends JFrame {
                 };
 
                 File[] backgrounds = new File("resources/pic/maps/").listFiles();
-                DefaultComboBoxModel<String> cbModel = new DefaultComboBoxModel<String>();
+                DefaultComboBoxModel<String> cbModel = new DefaultComboBoxModel<>();
                 assert backgrounds != null;
                 for (File background : backgrounds) {
                     cbModel.addElement(background.getName().replace(".png", ""));
                 }
-                JComboBox<String> backgroundChoiser = new JComboBox<>(cbModel) {
+
+                add(addressArea);
+                add(new JComboBox<>(cbModel) {
                     {
-                        addActionListener(e -> {
+                        addActionListener(_ -> {
                             System.out.println("Chosen back: " + getSelectedItem());
                             levelManager.setCurrentBackImage(backgrounds[getSelectedIndex()]);
                         });
                     }
-                };
-
-                add(addressArea);
-                add(backgroundChoiser);
+                });
             }
         };
 
@@ -113,7 +123,7 @@ public class ItemsFrame extends JFrame {
 
                 addElementsButtons();
 
-                addMouseListener(GameFrame.getMList());
+                addMouseListener(levelManager.getGameFrame().getMList());
             }
 
             private void addCommandButtons() {
@@ -132,12 +142,12 @@ public class ItemsFrame extends JFrame {
                                 defSquareToolIsSelected = false;
 
                                 setCursor(Registry.cur_0);
-                                GameFrame.setsCursor(Registry.cur_0);
+                                levelManager.getGameFrame().setCursor(Registry.cur_0);
 
                                 if (addressArea.getText().isEmpty()) {
                                     JOptionPane.showConfirmDialog(addressArea,
                                             "Имя новой карты слишком короткое!", "Ошибка:",
-                                            JOptionPane.PLAIN_MESSAGE, JOptionPane.ERROR_MESSAGE);
+                                            JOptionPane.DEFAULT_OPTION, JOptionPane.ERROR_MESSAGE, null);
                                     return;
                                 }
 
@@ -151,15 +161,34 @@ public class ItemsFrame extends JFrame {
                                     }
                                 }
 
-                                levelManager.saveLevel(
-                                        addressArea.getText(),
-                                        lives, deaths,
-                                        zombiesCount, skeletonsCount,
-                                        newGreenKeys,
-                                        redTowerCount, whiteTowerCount, greenTowerCount, mageTowerCount);
+                                List<AbstractDecor> decos = levelManager.getCurrentDeco();
+                                decos.forEach(d -> d.setCenterPoint(
+                                        FoxPointConverter.convert(POINT_TO_PERCENT, d.getCenterPoint(), levelManager.getGameFrame().getCurrentBounds())));
+                                List<Point2D> mwPoints = levelManager.getCurrentGreenKeysPixels().stream()
+                                        .map(p -> FoxPointConverter.convert(POINT_TO_PERCENT, p, levelManager.getGameFrame().getCurrentBounds())).collect(Collectors.toList());
+                                List<AbstractBuilding> buildings = levelManager.getCurrentBuilds();
+                                buildings.forEach(b -> b.setCenterPoint(
+                                        FoxPointConverter.convert(POINT_TO_PERCENT, b.getCenterPoint(), levelManager.getGameFrame().getCurrentBounds())));
+
+                                Level toSave = Level.builder()
+                                        .lives(lives)
+                                        .deaths(deaths)
+                                        .zombiesCount(zombiesCount)
+                                        .skeletonsCount(skeletonsCount)
+                                        .levelBackgroundName(addressArea.getText())
+                                        .greenTowersCount(greenTowerCount)
+                                        .redTowersCount(redTowerCount)
+                                        .whiteTowersCount(whiteTowerCount)
+                                        .mageTowersCount(mageTowerCount)
+                                        .decors(decos)
+                                        .builds(buildings)
+                                        .mobWayPoints(mwPoints)
+                                        .build();
+
+                                SavesEngine.save(toSave);
                             }
                         });
-                        addMouseMotionListener(GameFrame.getMMList());
+                        addMouseMotionListener(levelManager.getGameFrame().getMMList());
                     }
                 });
 
@@ -170,18 +199,15 @@ public class ItemsFrame extends JFrame {
                         setBorderPainted(false);
                         setBackground(Color.GREEN);
                         setToolTipText("Добавить новую точку пути.");
-                        addActionListener(new ActionListener() {
-                            @Override
-                            public void actionPerformed(ActionEvent e) {
-                                resetBrush();
-                                addPointToolIsSelected = true;
-                                remPointToolIsSelected = false;
-                                defSquareToolIsSelected = false;
-                                setCursor(Registry.addPoint);
-                                GameFrame.setsCursor(Registry.addPoint);
-                            }
+                        addActionListener(_ -> {
+                            resetBrush();
+                            addPointToolIsSelected = true;
+                            remPointToolIsSelected = false;
+                            defSquareToolIsSelected = false;
+                            setCursor(Registry.addPoint);
+                            levelManager.getGameFrame().setCursor(Registry.addPoint);
                         });
-                        addMouseMotionListener(GameFrame.getMMList());
+                        addMouseMotionListener(levelManager.getGameFrame().getMMList());
                     }
                 });
 
@@ -192,18 +218,15 @@ public class ItemsFrame extends JFrame {
                         setBorderPainted(false);
                         setBackground(Color.MAGENTA.darker());
                         setToolTipText("Удалить объект. Осторожно!");
-                        addActionListener(new ActionListener() {
-                            @Override
-                            public void actionPerformed(ActionEvent e) {
-                                resetBrush();
-                                addPointToolIsSelected = false;
-                                remPointToolIsSelected = true;
-                                defSquareToolIsSelected = false;
-                                setCursor(Registry.remPoint);
-                                GameFrame.setsCursor(Registry.remPoint);
-                            }
+                        addActionListener(_ -> {
+                            resetBrush();
+                            addPointToolIsSelected = false;
+                            remPointToolIsSelected = true;
+                            defSquareToolIsSelected = false;
+                            setCursor(Registry.remPoint);
+                            levelManager.getGameFrame().setCursor(Registry.remPoint);
                         });
-                        addMouseMotionListener(GameFrame.getMMList());
+                        addMouseMotionListener(levelManager.getGameFrame().getMMList());
                     }
                 });
 
@@ -226,7 +249,7 @@ public class ItemsFrame extends JFrame {
                                 }
                             }
                         });
-                        addMouseMotionListener(GameFrame.getMMList());
+                        addMouseMotionListener(levelManager.getGameFrame().getMMList());
                     }
                 });
 
@@ -237,13 +260,8 @@ public class ItemsFrame extends JFrame {
                         setBorderPainted(false);
                         setBackground(Color.YELLOW.darker());
                         setToolTipText("Опции уровня.");
-                        addActionListener(new ActionListener() {
-                            @Override
-                            public void actionPerformed(ActionEvent e) {
-                                new CreateLevelOptions(ItemsFrame.this);
-                            }
-                        });
-                        addMouseMotionListener(GameFrame.getMMList());
+                        addActionListener(_ -> new CreateLevelOptions(ItemsFrame.this));
+                        addMouseMotionListener(levelManager.getGameFrame().getMMList());
                     }
                 });
 
@@ -254,17 +272,14 @@ public class ItemsFrame extends JFrame {
                         setBorderPainted(false);
                         setBackground(Color.CYAN.darker());
                         setToolTipText("Здание защиты.");
-                        addActionListener(new ActionListener() {
-                            @Override
-                            public void actionPerformed(ActionEvent e) {
-                                resetBrush();
-                                addPointToolIsSelected = false;
-                                remPointToolIsSelected = false;
-                                defSquareToolIsSelected = true;
-                                GameFrame.setsCursor(Registry.defPoint);
-                            }
+                        addActionListener(_ -> {
+                            resetBrush();
+                            addPointToolIsSelected = false;
+                            remPointToolIsSelected = false;
+                            defSquareToolIsSelected = true;
+                            levelManager.getGameFrame().setCursor(Registry.defPoint);
                         });
-                        addMouseMotionListener(GameFrame.getMMList());
+                        addMouseMotionListener(levelManager.getGameFrame().getMMList());
                     }
                 });
             }
@@ -273,7 +288,7 @@ public class ItemsFrame extends JFrame {
                 for (AbstractDecor elem : DecorBase.getAll()) {
                     add(new JButton() {
                         {
-                            setName("itemButton_" + elem.getID());
+                            setName("itemButton_" + elem.getId());
                             Image ico = elem.getIcon().getImage();
                             if (ico.getWidth(null) > 64) {
                                 ico = ico.getScaledInstance(64, 64, 2);
@@ -282,24 +297,21 @@ public class ItemsFrame extends JFrame {
                             setFocusPainted(false);
                             setBorderPainted(false);
                             setBackground(Color.GRAY);
-                            addActionListener(new ActionListener() {
-                                @Override
-                                public void actionPerformed(ActionEvent e) {
-                                    addPointToolIsSelected = false;
-                                    remPointToolIsSelected = false;
-                                    defSquareToolIsSelected = false;
+                            addActionListener(_ -> {
+                                addPointToolIsSelected = false;
+                                remPointToolIsSelected = false;
+                                defSquareToolIsSelected = false;
 //									setsCursor(Cursors.getPNGCursor(elem.getIcon(), "cur0"));
 //									GameLevel.setsCursor(Cursors.getPNGCursor("cur0"));
-                                }
                             });
-                            addMouseListener(GameFrame.getMList());
-                            addMouseMotionListener(GameFrame.getMMList());
+                            addMouseListener(levelManager.getGameFrame().getMList());
+                            addMouseMotionListener(levelManager.getGameFrame().getMMList());
                         }
 
                         @Override
                         public void paintComponent(Graphics g) {
                             super.paintComponent(g);
-                            g.drawString(String.valueOf(elem.getID()), 6, getWidth() - 25);
+                            g.drawString(String.valueOf(elem.getId()), 6, getWidth() - 25);
                             g.dispose();
                             setToolTipText(elem.getComment());
                         }
@@ -309,7 +321,7 @@ public class ItemsFrame extends JFrame {
                 for (AbstractBuilding elem : BuildBase.getAll()) {
                     add(new JButton() {
                         {
-                            setName("itemButton_" + elem.getID());
+                            setName("itemButton_" + elem.getId());
                             Image ico = elem.getIcon().getImage();
                             if (ico.getWidth(null) > 64) {
                                 ico = ico.getScaledInstance(64, 64, 2);
@@ -319,16 +331,13 @@ public class ItemsFrame extends JFrame {
                             setFocusPainted(false);
                             setBorderPainted(false);
                             setBackground(Color.GRAY);
-                            addActionListener(new ActionListener() {
-                                @Override
-                                public void actionPerformed(ActionEvent e) {
-                                    addPointToolIsSelected = false;
-                                    remPointToolIsSelected = false;
-                                    defSquareToolIsSelected = false;
-                                }
+                            addActionListener(_ -> {
+                                addPointToolIsSelected = false;
+                                remPointToolIsSelected = false;
+                                defSquareToolIsSelected = false;
                             });
-                            addMouseListener(GameFrame.getMList());
-                            addMouseMotionListener(GameFrame.getMMList());
+                            addMouseListener(levelManager.getGameFrame().getMList());
+                            addMouseMotionListener(levelManager.getGameFrame().getMMList());
                         }
                     });
                 }
@@ -338,7 +347,7 @@ public class ItemsFrame extends JFrame {
         add(newMapNamer, BorderLayout.NORTH);
         add(new JScrollPane(content), BorderLayout.CENTER);
 
-        addMouseMotionListener(GameFrame.getMMList());
+        addMouseMotionListener(levelManager.getGameFrame().getMMList());
 
         pack();
         setVisible(true);
@@ -356,8 +365,8 @@ public class ItemsFrame extends JFrame {
 
     public void resetBrush() {
         freeMouse = true;
-        GameFrame.resetMemoryImage();
-        GameFrame.resetMemoryDecorID();
+        levelManager.getGameFrame().resetMemoryImage();
+        levelManager.getGameFrame().resetMemoryDecorID();
 
         Cursor cur = Registry.cur_0;
         if (cur == null) {
@@ -365,11 +374,11 @@ public class ItemsFrame extends JFrame {
         }
         if (itemsFrame == null) {
 //			throw new RuntimeException("itemsFrame (resetBrush): itemsFrame is NULL!");
-            GameFrame.getOwnFrame().setCursor(cur);
+            levelManager.getGameFrame().setCursor(cur);
             return;
         }
         itemsFrame.setCursor(cur);
-        GameFrame.setsCursor(Registry.cur_0);
+        levelManager.getGameFrame().setCursor(Registry.cur_0);
     }
 
     public void addGreenKey(Point point) {
