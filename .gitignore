@@ -1,0 +1,8 @@
+target
+.idea
+/log
+*.psd
+*.dat
+*.mp3
+*.ttf
+*.png
